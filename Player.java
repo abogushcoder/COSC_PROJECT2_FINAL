@@ -10,7 +10,7 @@ public class Player extends Entity {
   // Default speed that the Player moves (in pixels) each time the user moves it
   public static final int DEFAULT_MOVEMENT_SPEED = 7;
   // Starting hit points
-  public static final int STARTING_HP = 3;
+  public static final int STARTING_HP = 5;
 
   // Current movement speed. This is the number of pixels the Player moves by
   // anytime

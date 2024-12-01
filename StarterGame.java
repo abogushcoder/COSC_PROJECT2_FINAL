@@ -1,6 +1,8 @@
 import java.awt.*;
 import java.awt.event.*;
 import java.util.*;
+import java.util.Timer;
+import java.util.TimerTask;
 
 //A Starter version of the scrolling game, featuring Avoids, Collects, RareAvoids, and RareCollects
 //Players must reach a score threshold to win.
@@ -12,7 +14,7 @@ public class StarterGame extends GameEngine2D {
   protected static final int STARTING_PLAYER_Y = 100;
 
   // Score needed to win the game
-  protected static final int SCORE_TO_WIN = 300;
+  protected static final int SCORE_TO_WIN = 3;
 
   // Maximum that the game speed can be increased to
   // (a percentage, ex: a value of 300 = 300% speed, or 3x regular speed)
@@ -31,6 +33,10 @@ public class StarterGame extends GameEngine2D {
   // A Random object for all your random number generation needs!
   public static final Random rand = new Random();
 
+  private Entity ability;
+  private String abilityName;
+  private Entity currentThrowable;
+  private boolean isOnCooldown = false;
   // player's current score
   protected int score;
 
@@ -38,6 +44,9 @@ public class StarterGame extends GameEngine2D {
   // Player presumably
   // is also in the DisplayList, but it will need to be referenced often)
   protected Player player;
+  private boolean isFrozen = false;
+  private String playerState = "NORMAL";
+  private Timer activeTimer;
 
   public StarterGame() {
     this(DEFAULT_WIDTH, DEFAULT_HEIGHT);
@@ -50,10 +59,11 @@ public class StarterGame extends GameEngine2D {
   // Performs all of the initialization operations that need to be done before the
   // game starts
   protected void pregame() {
-    this.setBgColor(Color.BLACK);
+    this.setBgImage("assets/clashRoyaleBackground.jpg");
     this.player = new Player(STARTING_PLAYER_X, STARTING_PLAYER_Y);
     this.entities.add(player);
     this.score = 0;
+    this.ability = null;
     this.setSplashImage(INTRO_SPLASH_FILE);
   }
 
@@ -71,7 +81,7 @@ public class StarterGame extends GameEngine2D {
 
   // Update the text at the top of the game window
   protected void updateTitleText() {
-    setTitleText("HP: " + this.player.getHP() + ", Score: " + this.score);
+    setTitleText("HP: " + this.player.getHP() + ", Crowns: " + this.score + ", Ability: " + this.abilityName);
   }
 
   // Scroll all scrollable entities per their respective scroll speeds
@@ -80,12 +90,45 @@ public class StarterGame extends GameEngine2D {
       if (this.entities.get(i) instanceof Scrollable) {
         Scrollable entityToScroll = (Scrollable) this.entities.get(i);
         entityToScroll.scroll();
+
+        if (entityToScroll instanceof FireballToThrow) {
+          FireballToThrow fireball = (FireballToThrow) entityToScroll;
+
+          if (fireball.hasReachedTarget()) {
+            Entity explosion = new Explosion(fireball.getX(), fireball.getY());
+            this.entities.add(explosion);
+            this.currentThrowable = explosion;
+
+            fireball.setGCFlag(true);
+
+            Timer explosionTimer = new Timer();
+            explosionTimer.schedule(new TimerTask() {
+              @Override
+              public void run() {
+                explosion.setGCFlag(true);
+              }
+            }, 200);
+          }
+        }
       }
     }
+
     for (Entity ele : this.getAllCollisions(this.player)) {
-      this.collidedWithPlayer((Consumable) ele);
+      if (ele instanceof Consumable) {
+        this.collidedWithPlayer((Consumable) ele);
+      }
     }
 
+    if (this.currentThrowable != null) {
+      for (Entity ele : this.getAllCollisions(this.currentThrowable)) {
+        if (ele instanceof Consumable) {
+          this.collidedWithThrowable(ele);
+        }
+      }
+      if (this.currentThrowable.isFlaggedForGC()) {
+        this.currentThrowable = null;
+      }
+    }
   }
 
   // Handles "garbage collection" of the entities
@@ -93,61 +136,213 @@ public class StarterGame extends GameEngine2D {
   // (i.e. will no longer need to be drawn in the game window).
   protected void gcOffscreenEntities() {
     for (int i = 0; i < this.entities.size(); i++) {
-      if (this.entities.get(i).getX() + this.entities.get(i).getWidth() < 0) {
+      if (this.entities.get(i).getX() + this.entities.get(i).getWidth() < 0
+          || this.entities.get(i).getX() > this.getWindowWidth()) {
         this.entities.get(i).setGCFlag(true);
       }
+    }
+  }
+
+  private void collidedWithThrowable(Entity collidedWith) {
+    if (collidedWith instanceof Crate) {
+      Entity crown = new Crown(collidedWith.getX(), collidedWith.getY());
+      this.entities.add(crown);
+      collidedWith.setGCFlag(true);
+    }
+    if (!(collidedWith instanceof Collectable) && !(collidedWith instanceof Crown)) {
+      collidedWith.setGCFlag(true);
     }
   }
 
   // Called whenever it has been determined that the Player collided with a
   // consumable
   private void collidedWithPlayer(Consumable collidedWith) {
+    if (isOnCooldown && collidedWith instanceof Collectable) {
+      return;
+    }
+    if (this.ability != null && collidedWith instanceof Collectable) {
+      return;
+    }
+
+    // Process normal collisions
     score += collidedWith.getScoreModifier();
     this.player.modifyHP(collidedWith.getHPModifier());
-    ((Entity) (collidedWith)).setGCFlag(true);
+    ((Entity) collidedWith).setGCFlag(true);
 
+    if (collidedWith instanceof MiniLavaHound) {
+      this.setOnFire();
+    } else if (collidedWith instanceof IceSpirit) {
+      this.freezePlayer();
+    } else if (collidedWith instanceof LavaHound) {
+      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - Player.PLAYER_HEIGHT));
+      this.player.setX(0);
+      this.player.setY(randYCoord);
+      int currentX = ((Entity) collidedWith).getX();
+      int currentY = ((Entity) collidedWith).getY();
+      Entity replaceMiniLavaHound = new MiniLavaHound(currentX, currentY);
+      this.entities.add(replaceMiniLavaHound);
+    } else if (collidedWith instanceof Collectable) {
+      this.ability = (Entity) collidedWith;
+      this.abilityName = ((Collectable) collidedWith).getName();
+    }
+  }
+
+  private void startCooldown() {
+    isOnCooldown = true;
+    this.abilityName = "Cooldown";
+
+    Timer cooldownTimer = new Timer();
+    cooldownTimer.schedule(new TimerTask() {
+      public void run() {
+        isOnCooldown = false;
+        StarterGame.this.abilityName = "Ready";
+      }
+    }, 10000);
+  }
+
+  public void rollLog(MouseEvent click) {
+    int mouseX = click.getX();
+    int mouseY = click.getY();
+
+    Entity log = new LogToRoll(mouseX, mouseY - LogToRoll.LOGTR_HEIGHT / 2);
+    this.currentThrowable = log;
+    this.entities.add(log);
+    this.ability = null;
+
+    startCooldown();
+
+  }
+
+  public void throwFireball(MouseEvent click) {
+    int mouseX = click.getX();
+    int mouseY = click.getY();
+
+    if (mouseX <= this.player.getX() + Player.PLAYER_WIDTH) {
+      return;
+    }
+
+    FireballToThrow fireball = new FireballToThrow(this.player.getX() + Player.PLAYER_WIDTH,
+        this.player.getY() + Player.PLAYER_HEIGHT / 2 - FireballToThrow.FBTT_HEIGHT / 2);
+    fireball.setTarget(mouseX, mouseY);
+    this.currentThrowable = fireball;
+    this.entities.add(fireball);
+    this.ability = null;
+
+    startCooldown();
+  }
+
+  public void freezePlayer() {
+    if (!playerState.equals("NORMAL")) {
+      return;
+    }
+
+    playerState = "FROZEN";
+    isFrozen = true;
+    this.player.setImage("assets/ice_cube.png");
+
+    if (activeTimer != null) {
+      activeTimer.cancel();
+    }
+
+    activeTimer = new Timer();
+
+    activeTimer.schedule(new TimerTask() {
+      public void run() {
+        if (playerState.equals("FROZEN")) {
+          StarterGame.this.player.setImage("assets/cracked_ice_cube.png");
+        }
+      }
+    }, 500);
+
+    activeTimer.schedule(new TimerTask() {
+      public void run() {
+        if (playerState.equals("FROZEN")) {
+          StarterGame.this.player.setImage("assets/player.gif");
+          playerState = "NORMAL";
+          isFrozen = false;
+        }
+      }
+    }, 1000);
+  }
+
+  public void setOnFire() {
+    if (!playerState.equals("NORMAL")) {
+      return;
+    }
+
+    playerState = "ON_FIRE";
+    this.player.setImage("assets/fire.png");
+
+    if (activeTimer != null) {
+      activeTimer.cancel();
+    }
+
+    activeTimer = new Timer();
+
+    activeTimer.schedule(new TimerTask() {
+      public void run() {
+        if (playerState.equals("ON_FIRE")) {
+          StarterGame.this.player.setImage("assets/smoke_after_fire.png");
+        }
+      }
+    }, 2000);
+
+    activeTimer.schedule(new TimerTask() {
+      public void run() {
+        if (playerState.equals("ON_FIRE")) {
+          StarterGame.this.player.setImage("assets/player.gif");
+          playerState = "NORMAL";
+        }
+      }
+    }, 2100);
   }
 
   // Spawn new Entities on the right edge of the game board
   private void spawnEntities() {
-    int randAvoid = (int) (Math.random() * 2) + 1;
-    int randRareAvoid = (int) (Math.random() * 2);
-    int randCollect = (int) (Math.random() * 2) + 1;
-    int randRareCollect = (int) (Math.random() * 2);
+    double crateProbability = 1.0 / 10.0;
+    double logFireballProbability = 1.0 / 6.0;
 
-    for (int i = 0; i < randAvoid; i++) {
-      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - Avoid.AVOID_HEIGHT));
-      Entity entityToSpawn = new Avoid(this.getWindowWidth(), randYCoord);
+    if (Math.random() < crateProbability) {
+      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - Crate.CRATE_HEIGHT));
+      Entity entityToSpawn = new Crate(this.getWindowWidth(), randYCoord);
       if (this.getAllCollisions(entityToSpawn).size() < 1) {
         this.entities.add(entityToSpawn);
       }
-
     }
 
-    for (int i = 0; i < randRareAvoid; i++) {
-      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - RareAvoid.RAVOID_HEIGHT));
-      Entity entityToSpawn = new RareAvoid(this.getWindowWidth(), randYCoord);
+    if (Math.random() < logFireballProbability) {
+      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - LogToCollect.LOGTC_HEIGHT));
+      Entity entityToSpawn = new LogToCollect(this.getWindowWidth(), randYCoord);
       if (this.getAllCollisions(entityToSpawn).size() < 1) {
         this.entities.add(entityToSpawn);
       }
-
     }
 
-    for (int i = 0; i < randCollect; i++) {
-      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - Collect.COLLECT_HEIGHT));
-      Entity entityToSpawn = new Collect(this.getWindowWidth(), randYCoord);
+    if (Math.random() < logFireballProbability) {
+      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - FireballToCollect.FBTC_HEIGHT));
+      Entity entityToSpawn = new FireballToCollect(this.getWindowWidth(), randYCoord);
       if (this.getAllCollisions(entityToSpawn).size() < 1) {
         this.entities.add(entityToSpawn);
       }
-
     }
 
-    for (int i = 0; i < randRareCollect; i++) {
-      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - RareCollect.RCOLLECT_HEIGHT));
-      Entity entityToSpawn = new RareCollect(this.getWindowWidth(), randYCoord);
+    int randLavaHound = (int) (Math.random() * 2);
+    for (int i = 0; i < randLavaHound; i++) {
+      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - LavaHound.LHOUND_HEIGHT));
+      Entity entityToSpawn = new LavaHound(this.getWindowWidth(), randYCoord);
       if (this.getAllCollisions(entityToSpawn).size() < 1) {
         this.entities.add(entityToSpawn);
       }
+    }
+
+    int randIceSpirit = (int) (Math.random() * 2);
+    for (int i = 0; i < randIceSpirit; i++) {
+      int randYCoord = (int) (Math.random() * (this.getWindowHeight() - IceSpirit.ISPIRIT_HEIGHT));
+      Entity entityToSpawn = new IceSpirit(this.getWindowWidth(), randYCoord);
+      if (this.getAllCollisions(entityToSpawn).size() < 1) {
+        this.entities.add(entityToSpawn);
+      }
+
     }
 
   }
@@ -155,9 +350,9 @@ public class StarterGame extends GameEngine2D {
   // Called once the game is over, performs any end-of-game operations
   protected void postgame() {
     if (this.player.getHP() == 0) {
-      super.setTitleText("GAME OVER - You Won!");
-    } else {
       super.setTitleText("GAME OVER - You Lose!");
+    } else {
+      super.setTitleText("GAME OVER - You Win!");
     }
 
   }
@@ -166,9 +361,20 @@ public class StarterGame extends GameEngine2D {
   // Game can be over due to either a win or lose state
   protected boolean isGameOver() {
     if (this.score >= SCORE_TO_WIN) {
+      for (int i = 0; i < this.entities.size(); i++) {
+        this.entities.get(i).setGCFlag(true);
+      }
+      this.entities.performGC();
+      setSplashImage("assets/hehe.gif");
       return true;
     }
     if (this.player.getHP() <= 0) {
+      for (int i = 0; i < this.entities.size(); i++) {
+        this.entities.get(i).setGCFlag(true);
+      }
+      this.entities.performGC();
+      setSplashImage("assets/crycry.gif");
+
       return true;
     }
     return false;
@@ -177,7 +383,6 @@ public class StarterGame extends GameEngine2D {
 
   // Reacts to a single key press on the keyboard
   protected void keyReact(int key) {
-    // TODO:code each function
 
     // if a splash screen is up, only react to the advance splash key
     if (getSplashImage() != null) {
@@ -190,31 +395,33 @@ public class StarterGame extends GameEngine2D {
       if (key == KEY_PAUSE_GAME) {
         isPaused = true;
       }
-      if (key == UP_KEY && this.player.getY() - Player.DEFAULT_MOVEMENT_SPEED > 0) {
-        this.player.setY(this.player.getY() - Player.DEFAULT_MOVEMENT_SPEED);
-      }
+      if (!isFrozen) {
+        if (key == UP_KEY && this.player.getY() - Player.DEFAULT_MOVEMENT_SPEED > 0) {
+          this.player.setY(this.player.getY() - Player.DEFAULT_MOVEMENT_SPEED);
+        }
 
-      if (key == DOWN_KEY
-          && this.player.getY() + Player.DEFAULT_MOVEMENT_SPEED < this.getWindowHeight() - this.player.getHeight()) {
-        this.player.setY(this.player.getY() + Player.DEFAULT_MOVEMENT_SPEED);
-      }
-      // TODO: in the future might want to change DEFAULT_HEIGHT to this.getHeight in
-      // Window.java
-      if (key == RIGHT_KEY
-          && this.player.getX() + Player.DEFAULT_MOVEMENT_SPEED < this.getWindowWidth() - this.player.getWidth()) {
-        this.player.setX(this.player.getX() + Player.DEFAULT_MOVEMENT_SPEED);
-      }
+        if (key == DOWN_KEY
+            && this.player.getY() + Player.DEFAULT_MOVEMENT_SPEED < this.getWindowHeight() - this.player.getHeight()) {
+          this.player.setY(this.player.getY() + Player.DEFAULT_MOVEMENT_SPEED);
+        }
+        // TODO: in the future might want to change DEFAULT_HEIGHT to this.getHeight in
+        // Window.java
+        if (key == RIGHT_KEY
+            && this.player.getX() + Player.DEFAULT_MOVEMENT_SPEED < this.getWindowWidth() - this.player.getWidth()) {
+          this.player.setX(this.player.getX() + Player.DEFAULT_MOVEMENT_SPEED);
+        }
 
-      if (key == LEFT_KEY && this.player.getX() - Player.DEFAULT_MOVEMENT_SPEED > 0) {
-        this.player.setX(this.player.getX() - Player.DEFAULT_MOVEMENT_SPEED);
-      }
+        if (key == LEFT_KEY && this.player.getX() - Player.DEFAULT_MOVEMENT_SPEED > 0) {
+          this.player.setX(this.player.getX() - Player.DEFAULT_MOVEMENT_SPEED);
+        }
 
-      if (key == SPEED_UP_KEY && this.getGameSpeed() < MAX_GAME_SPEED) {
-        this.setGameSpeed(this.getGameSpeed() + SPEED_CHANGE_INTERVAL);
-      }
+        if (key == SPEED_UP_KEY && this.getGameSpeed() < MAX_GAME_SPEED) {
+          this.setGameSpeed(this.getGameSpeed() + SPEED_CHANGE_INTERVAL);
+        }
 
-      if (key == SPEED_DOWN_KEY && this.getGameSpeed() > SPEED_CHANGE_INTERVAL) {
-        this.setGameSpeed(this.getGameSpeed() + SPEED_CHANGE_INTERVAL);
+        if (key == SPEED_DOWN_KEY && this.getGameSpeed() > SPEED_CHANGE_INTERVAL) {
+          this.setGameSpeed(this.getGameSpeed() - SPEED_CHANGE_INTERVAL);
+        }
       }
 
     } else if (isPaused) {
@@ -227,9 +434,15 @@ public class StarterGame extends GameEngine2D {
 
   // Handles reacting to a single mouse click in the game window
   protected MouseEvent reactToMouseClick(MouseEvent click) {
+    int mouseX = click.getX();
+    int mouseY = click.getY();
 
-    // Mouse functionality is not used at all in the Starter game...
-    // you may want to override this function for a CreativeGame feature though!
+    if (this.ability != null && this.ability instanceof LogToCollect) {
+      this.rollLog(click);
+    }
+    if (this.ability != null && this.ability instanceof FireballToCollect) {
+      this.throwFireball(click);
+    }
 
     return click;// returns the mouse event for any child classes overriding this method
   }
