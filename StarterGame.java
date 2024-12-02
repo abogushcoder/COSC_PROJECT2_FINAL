@@ -22,7 +22,7 @@ public class StarterGame extends GameEngine2D {
   // Interval that the speed changes when pressing speed up/down keys
   protected static final int SPEED_CHANGE_INTERVAL = 20;
 
-  public static final String INTRO_SPLASH_FILE = "assets/splash.gif";
+  public static final String INTRO_SPLASH_FILE = "assets/final_splash.jpg";
   // Key pressed to advance past the splash screen
   public static final int ADVANCE_SPLASH_KEY = KeyEvent.VK_ENTER;
 
@@ -103,7 +103,6 @@ public class StarterGame extends GameEngine2D {
 
             Timer explosionTimer = new Timer();
             explosionTimer.schedule(new TimerTask() {
-              @Override
               public void run() {
                 explosion.setGCFlag(true);
               }
