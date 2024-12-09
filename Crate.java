@@ -1,7 +1,7 @@
 
 public class Crate extends Entity implements Scrollable, Consumable {
 
-  public static final String CRATE_IMAGE_FILE = "assets/crate.png";
+  public static final String CRATE_IMAGE_FILE = "bogushAssets/crate.png";
   public static final int CRATE_WIDTH = 112;
   public static final int CRATE_HEIGHT = 112;
   public static final int CRATE_DEFAULT_SCROLL_SPEED = 5;

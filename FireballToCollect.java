@@ -1,7 +1,7 @@
 
 public class FireballToCollect extends Entity implements Consumable, Scrollable, Collectable {
 
-  public static final String FBTC_IMAGE_FILE = "assets/fireball.png";
+  public static final String FBTC_IMAGE_FILE = "bogushAssets/fireball.png";
   public static final int FBTC_WIDTH = 57;
   public static final int FBTC_HEIGHT = 55;
   public static final int FBTC_DEFAULT_SCROLL_SPEED = 5;

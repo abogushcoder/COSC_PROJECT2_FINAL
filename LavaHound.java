@@ -1,5 +1,5 @@
 public class LavaHound extends Avoid {
-  public static final String LHOUND_IMAGE_FILE = "assets/lava_hound.png";
+  public static final String LHOUND_IMAGE_FILE = "bogushAssets/lava_hound.png";
 
   public static final int LHOUND_WIDTH = 109;
   public static final int LHOUND_HEIGHT = 142;

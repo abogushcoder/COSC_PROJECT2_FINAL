@@ -1,6 +1,6 @@
 public class LogToRoll extends Entity implements Scrollable, Throwable {
 
-  public static final String LOGTR_IMAGE_FILE = "assets/log.png";
+  public static final String LOGTR_IMAGE_FILE = "bogushAssets/log.png";
   public static final int LOGTR_WIDTH = 62;
   public static final int LOGTR_HEIGHT = 245;
   public static final int LOGTR_DEFAULT_SCROLL_SPEED = 10;

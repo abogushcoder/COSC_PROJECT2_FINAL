@@ -1,6 +1,6 @@
 public class Crown extends Entity implements Consumable, Scrollable {
 
-  public static final String CROWN_IMAGE_FILE = "assets/crown.png";
+  public static final String CROWN_IMAGE_FILE = "bogushAssets/crown.png";
   public static final int CROWN_WIDTH = 112;
   public static final int CROWN_HEIGHT = 112;
   public static final int CROWN_DEFAULT_SCROLL_SPEED = 5;

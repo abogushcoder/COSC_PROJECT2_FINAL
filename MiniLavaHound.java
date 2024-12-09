@@ -1,5 +1,5 @@
 public class MiniLavaHound extends LavaHound {
-  public static final String MLHOUND_IMAGE_FILE = "assets/Mini_Lavahound_Image.png";
+  public static final String MLHOUND_IMAGE_FILE = "bogushAssets/Mini_Lavahound_Image.png";
 
   // Dimensions of the Avoid
   public static final int MLHOUND_WIDTH = 184;

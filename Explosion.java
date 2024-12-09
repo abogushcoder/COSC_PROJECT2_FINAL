@@ -1,7 +1,7 @@
 
 public class Explosion extends Entity implements Scrollable, Throwable {
 
-  public static final String EXPLOSION_IMAGE_FILE = "assets/explosion.png";
+  public static final String EXPLOSION_IMAGE_FILE = "bogushAssets/explosion.png";
   public static final int EXPLOSION_WIDTH = 237;
   public static final int EXPLOSION_HEIGHT = 213;
   public static final int EXPLOSION_DEFAULT_SCROLL_SPEED = 0;

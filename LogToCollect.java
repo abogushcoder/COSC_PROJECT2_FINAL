@@ -1,6 +1,6 @@
 public class LogToCollect extends Entity implements Consumable, Scrollable, Collectable {
 
-  public static final String LOGTC_IMAGE_FILE = "assets/log.png";
+  public static final String LOGTC_IMAGE_FILE = "bogushAssets/log.png";
   public static final int LOGTC_WIDTH = 15;
   public static final int LOGTC_HEIGHT = 50;
   public static final int LOGTC_DEFAULT_SCROLL_SPEED = 5;

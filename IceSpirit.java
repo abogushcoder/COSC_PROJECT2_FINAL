@@ -1,5 +1,5 @@
 public class IceSpirit extends Avoid {
-  public static final String ISPIRIT_IMAGE_FILE = "assets/ice_spirit.png";
+  public static final String ISPIRIT_IMAGE_FILE = "bogushAssets/ice_spirit.png";
 
   public static final int ISPIRIT_WIDTH = 112;
   public static final int ISPIRIT_HEIGHT = 112;
