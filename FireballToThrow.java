@@ -1,8 +1,8 @@
 public class FireballToThrow extends Entity implements Scrollable, Throwable {
 
   public static final String FBTT_IMAGE_FILE = "bogushAssets/fireball.png";
-  public static final int FBTT_WIDTH = 110;
-  public static final int FBTT_HEIGHT = 110;
+  public static final int FBTT_WIDTH = 200;
+  public static final int FBTT_HEIGHT = 200;
   public static final int FBTT_DEFAULT_SCROLL_SPEED = 5;
   private int targetX;
   private int targetY;
@@ -29,8 +29,8 @@ public class FireballToThrow extends Entity implements Scrollable, Throwable {
   }
 
   public void setTarget(int targetX, int targetY) {
-    this.targetX = targetX - FBTT_WIDTH / 2;
-    this.targetY = targetY - FBTT_HEIGHT / 2;
+    this.targetX = targetX;
+    this.targetY = targetY;
     int deltaX = this.targetX - this.getX();
     int deltaY = this.targetY - this.getY();
     this.distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
@@ -61,15 +61,16 @@ public class FireballToThrow extends Entity implements Scrollable, Throwable {
 
   public void scroll() {
     if (!hasReachedTarget) {
-
       this.setX((int) (this.getX() + this.dx));
       this.setY((int) (this.getY() + this.dy));
 
-      if (Math.abs(this.getX() - this.targetX) <= FBTT_WIDTH / 2 &&
-          Math.abs(this.getY() - this.targetY) <= FBTT_HEIGHT / 2) {
+      double centerX = this.getX() + FBTT_WIDTH / 2.0;
+      double centerY = this.getY() + FBTT_HEIGHT / 2.0;
+      if (Math.abs(centerX - this.targetX) < FBTT_WIDTH &&
+          Math.abs(centerY - this.targetY) < FBTT_HEIGHT) {
         hasReachedTarget = true;
-        this.setX(this.targetX);
-        this.setY(this.targetY);
+        this.setX(this.targetX - FBTT_WIDTH / 2);
+        this.setY(this.targetY - FBTT_HEIGHT / 2);
       }
     }
   }

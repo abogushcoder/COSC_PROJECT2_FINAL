@@ -1,9 +1,0 @@
-if player hits an certain entity then it exlodes into 3 smaller pieces (Clash Royale Lava Hound)
-& player becomes invinsible for 2 seconds
-
-have 2 players - the way to destroy a typical entity is to have 1 player underneath it and 1 above it and you squish it.
-it makes both players grow and become invinsible for 2 seconds. (make for players skeletons from clash royale) and upon
-powerup become giant skeleton.
-
-if lavahound hits player player gets sent back to the front and spawns mini entities
-
